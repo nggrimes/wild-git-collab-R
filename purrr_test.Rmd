@@ -1,0 +1,119 @@
+---
+title: "nls"
+author: "Casey O'Hara"
+date: "1/25/2022"
+output: html_document
+---
+
+```{r setup, include=TRUE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(Metrics)
+library(cowplot)
+```
+
+```{r}
+d <- read_csv('JRN007001_lizard_pitfall_data_89-06.csv') %>%
+  janitor::clean_names() %>%
+  select(weight, sv_length, spp, sex) %>%
+  drop_na() %>%
+  group_by(spp, sex) %>%
+  filter(n() >= 6) %>%
+  filter(sex != 'J') %>%
+  ungroup()
+```
+
+```{r}
+svl_to_wt <-function (sv_length, a, b) {
+  wt <- a * sv_length^b
+  return(wt)
+}
+
+### guess params from log of data
+log_lm <- lm(log(weight) ~ log(sv_length), data = d)
+
+guess_params <- list(a = exp(coef(log_lm)[1]), b = coef(log_lm)[2])
+
+### run NLS using guess params as starting point
+lizards_all_nls <- nls(weight ~ svl_to_wt(sv_length, a, b),
+                       data = d,
+                       start = guess_params,
+                       trace = TRUE)
+
+### generate dataframe of model for plotting
+a_mdl <- coef(lizards_all_nls)[1]
+b_mdl <- coef(lizards_all_nls)[2]
+
+mdl_df <- data.frame(x = 1:150) %>%
+  mutate(y = svl_to_wt(x, a = a_mdl, b = b_mdl))
+```
+
+```{r}
+ggplot() +
+  geom_point(data = d, 
+             aes(x = sv_length, y = weight, color = sex),
+             alpha = .6) +
+  geom_line(data = mdl_df, aes(x, y))
+```
+
+try with `purrr::map()`
+
+```{r}
+nls_fxn <- function(df){
+  log_lm_tmp <- lm(log(weight) ~ log(sv_length), data = df)
+  
+  guess_prms <- list(a = exp(coef(log_lm_tmp)[1]), 
+                       b = coef(log_lm_tmp)[2])
+
+  mdl_out <- nls(weight ~ svl_to_wt(sv_length, a, b),
+                 data = df,
+                 start = guess_prms, trace = TRUE)
+  return(mdl_out)
+}
+
+
+nls_by_spp_sex <- d %>%
+  group_by(spp, sex) %>% 
+  nest() %>% 
+  mutate(nls_model = map(data, ~nls_fxn(.x))) %>% 
+  mutate(preds = map2(nls_model, data, ~ predict(.x, newdata=.y))) %>% 
+  mutate(RMSE  = map2_dbl(preds, data, ~ Metrics::rmse(.x, .y$weight)))
+
+```
+
+```{r}
+plots <- nls_by_spp_sex %>% 
+  arrange(RMSE) %>% 
+  head(5) %>% 
+  mutate(graph = map2(data, preds, 
+                      ~ ggplot() + 
+                        geom_point(data = .x, aes(x = sv_length, y = weight, color = 'Actual')) + 
+                        geom_line(aes(x = .x$sv_length, y = .y, color = 'Predicted')) + 
+                        theme_minimal() + 
+                        labs(x = 'SV length',
+                             y = 'weight') + 
+                        scale_color_manual(name = "Legend", 
+                                           breaks = c('Actual', 'Predicted'), 
+                                           values = c('Actual' = 'black', 'Predicted' = 'red'))
+                      )
+         )
+
+#extract the legend
+
+legend <- get_legend(plots$graph[[1]])
+
+#remove the legend from the plots
+for(i in 1:length(plots$graph)){
+  plots$graph[[i]] <- plots$graph[[i]] + theme(legend.position = "none")
+}
+
+#Make a new list
+plot_list <- plots$graph
+
+#create a new plot in the empty space of cowplot grids and fill it with the legend info we took from the plots.
+
+plot_list[[6]] <- legend
+
+cowplot::plot_grid(plotlist = plot_list, labels = c(plots$spp, ""), hjust = -0.5)
+```
+
