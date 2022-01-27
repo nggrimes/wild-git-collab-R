@@ -36,9 +36,11 @@ blahlb alhblah
 ## STEP 7: Uh oh, merge conflicts!
 
 ```{r break-it-1}
-Im writing stuff
+### Hey Nathan, here is my cool code
+### Nathan is  writing stuff
 
-
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_path()
 ```
 
 ## STEP 11: And even more merge conflicts!
