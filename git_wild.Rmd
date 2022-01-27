@@ -37,6 +37,7 @@ blahlb alhblah
 
 ```{r break-it-1}
 ### Hey Nathan, here is my cool code
+### Nathan is  writing stuff
 
 ggplot(diamonds, aes(x = carat, y = price)) +
   geom_path()
