@@ -36,11 +36,10 @@ blahlb alhblah
 ## STEP 7: Uh oh, merge conflicts!
 
 ```{r break-it-1}
-### Both partners - delete this comment, then write some code here
-### to plot, summarize, calculate something simple using the diamonds
-### dataset.
+### Hey Nathan, here is my cool code
 
-
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_path()
 ```
 
 ## STEP 11: And even more merge conflicts!
