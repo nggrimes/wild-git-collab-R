@@ -29,7 +29,7 @@ ggplot(diamonds,aes(x=carat,y=price))+
 diamonds_subset <- diamonds %>%
   filter(carat > 1 | cut == 'Ideal')
 
-blahlb alhblah 
+### blahlb alhblah 
 
 ```
 
